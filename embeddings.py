@@ -7,7 +7,8 @@ Original file is located at
     https://colab.research.google.com/drive/1NHnkSj2mmo6yB0HD1p0ogdcM2p0PfgAp
 """
 
-import yfinance as yf
+import os
+import json
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
@@ -15,20 +16,47 @@ from sklearn.manifold import LocallyLinearEmbedding, TSNE
 from sklearn.metrics.pairwise import cosine_similarity
 
 class StockEmbeddingPipeline:
-    def __init__(self, tickers, start_date="2020-01-01", end_date="2025-01-01"):
-        self.tickers = tickers
-        self.start_date = start_date
-        self.end_date = end_date
+    def __init__(self, data_dir="/data"):
+        self.data_dir = data_dir
         self.aligned_tickers = []
         self.X_scaled = None
         self.models = {}
         self.embeddings = {}
 
-    def fetch_and_prepare_data(self):
-        """Downloads stock data, handles missing values, and standardizes it."""
-        print(f"Downloading data for {len(self.tickers)} tickers...")
-        data = yf.download(self.tickers, start=self.start_date, end=self.end_date)['Close']
+    def load_and_prepare_data(self):
+        """
+        Read data from JSONL files and standardize.
+        """
+        print(f"Loading data from {self.data_dir}...")
+        all_series = {}
 
+        if not os.path.exists(self.data_dir):
+            raise FileNotFoundError(f"Directory {self.data_dir} not found.")
+
+        for filename in os.listdir(self.data_dir):
+            if filename.endswith('.jsonl'):
+                ticker = filename.replace('.jsonl', '')
+                filepath = os.path.join(self.data_dir, filename)
+
+                dates = []
+                closes = []
+
+                with open(filepath, 'r') as f:
+                    for line in f:
+                        if not line.strip(): continue
+                        record = json.loads(line)
+                        dates.append(pd.to_datetime(record['timestamp'], unit='ms'))
+                        closes.append(record['close'])
+
+                all_series[ticker] = pd.Series(closes, index=dates)
+
+        if not all_series:
+            raise ValueError(f"No valid JSONL files found in {self.data_dir}.")
+
+        print(f"Successfully loaded {len(all_series)} tickers. Merging...")
+
+        data = pd.DataFrame(all_series)
+        data = data.sort_index()
         data = data.ffill().bfill()
         self.aligned_tickers = data.columns.tolist()
 
@@ -39,23 +67,19 @@ class StockEmbeddingPipeline:
         print("Data preparation complete.")
 
     def train_embedding(self, method="LLE", **kwargs):
-        """
-        Trains the embedding algorithm and stores the transformed coordinates.
-        Supports passing custom parameters (e.g., n_components, perplexity) via kwargs.
-        """
         if self.X_scaled is None:
-            raise ValueError("Data not prepared. Call fetch_and_prepare_data() first.")
+            raise ValueError("Data not prepared. Call load_and_prepare_data() first.")
 
         method = method.upper()
         print(f"Running {method}...")
 
         if method == "LLE":
-            params = {"n_neighbors": 5, "n_components": 2, "random_state": 1}
+            params = {"n_neighbors": 5, "n_components": 2, "random_state": 42}
             params.update(kwargs)
             model = LocallyLinearEmbedding(**params)
 
         elif method == "TSNE":
-            params = {"n_components": 3, "perplexity": 3, "random_state": 1}
+            params = {"n_components": 3, "perplexity": 3, "random_state": 42}
             params.update(kwargs)
             model = TSNE(**params)
 
@@ -67,10 +91,6 @@ class StockEmbeddingPipeline:
         print(f"[{method}] Training and coordinate transformation complete.")
 
     def predict_similarities(self, method):
-        """
-        'Predicts' the relationships by computing the cosine similarity
-        matrix from the trained embeddings.
-        """
         method = method.upper()
         if method not in self.embeddings:
             raise ValueError(f"No embeddings found for {method}. Call train_embedding('{method}') first.")
@@ -81,14 +101,12 @@ class StockEmbeddingPipeline:
         return df_sim
 
 if __name__ == "__main__":
-    tickers_list = ["AAPL","MSFT","GOOGL","AMZN","NVDA","TSLA","JPM","XOM","WMT","JNJ","SPY"]
+    pipeline = StockEmbeddingPipeline(data_dir="/data")
 
-    pipeline = StockEmbeddingPipeline(tickers_list)
-
-    pipeline.fetch_and_prepare_data()
+    pipeline.load_and_prepare_data()
 
     pipeline.train_embedding(method="LLE", n_neighbors=5, n_components=2)
-    pipeline.train_embedding(method="TSNE", perplexity=3, n_components=3)
+    pipeline.train_embedding(method="TSNE", perplexity=30, n_components=3)
 
     df_sim_lle = pipeline.predict_similarities(method="LLE")
     df_sim_tsne = pipeline.predict_similarities(method="TSNE")
