@@ -7,182 +7,233 @@ from sklearn.decomposition import PCA, FastICA
 from sklearn.cross_decomposition import CCA
 from sklearn.preprocessing import StandardScaler
 
-# -----------------------------------
-# 1. LOAD STOCK JSONL FILES
-# -----------------------------------
 
-folder = "sampled_stocks/new_directory"
+# =====================================================
+# DATA LOADING
+# =====================================================
 
-print("Looking in folder:", folder)
+def load_stock_prices(folder):
 
-files = os.listdir(folder)
-print("Files found:", files[:10], "...")
+    print("Loading stock data from:", folder)
 
-price_series = []
+    files = os.listdir(folder)
+    print("Files found:", files[:10], "...")
 
-for file in files:
+    price_series = []
 
-    if not file.endswith(".jsonl"):
-        continue
+    for file in files:
 
-    ticker = file.replace(".jsonl", "")
-    path = os.path.join(folder, file)
+        if not file.endswith(".jsonl"):
+            continue
 
-    dates = []
-    prices = []
+        ticker = file.replace(".jsonl", "")
+        path = os.path.join(folder, file)
 
-    with open(path) as f:
+        dates = []
+        prices = []
 
-        for line in f:
+        with open(path) as f:
+            for line in f:
 
-            data = json.loads(line)
+                data = json.loads(line)
 
-            if "close" in data and "timestamp" in data:
+                if "close" in data and "timestamp" in data:
 
-                prices.append(data["close"])
+                    prices.append(data["close"])
 
-                dates.append(
-                    pd.to_datetime(data["timestamp"], unit="ms")
-                )
+                    dates.append(
+                        pd.to_datetime(data["timestamp"], unit="ms")
+                    )
 
-    if len(prices) == 0:
-        print(f"No prices in {file}")
-        continue
+        if len(prices) == 0:
+            continue
 
-    s = pd.Series(prices, index=dates, name=ticker)
+        s = pd.Series(prices, index=dates, name=ticker)
 
-    price_series.append(s)
+        price_series.append(s)
 
+    prices = pd.concat(price_series, axis=1)
 
-# -----------------------------------
-# 2. BUILD PRICE MATRIX
-# -----------------------------------
+    print("Price matrix shape:", prices.shape)
 
-prices = pd.concat(price_series, axis=1)
+    return prices
 
-print("\nPrice matrix shape:", prices.shape)
-print(prices.head())
 
+# =====================================================
+# RETURNS + CLEANING
+# =====================================================
 
-# -----------------------------------
-# 3. CONVERT PRICES → RETURNS
-# -----------------------------------
+def compute_returns(prices):
 
-returns = prices.pct_change()
+    returns = prices.pct_change()
 
-# replace infinite values
-returns = returns.replace([np.inf, -np.inf], np.nan)
+    returns = returns.replace([np.inf, -np.inf], np.nan)
 
-# forward fill gaps
-returns = returns.ffill()
+    returns = returns.ffill()
 
-# drop stocks missing too much data
-returns = returns.dropna(axis=1, thresh=int(0.7 * len(returns)))
+    returns = returns.dropna(axis=1, thresh=int(0.7 * len(returns)))
 
-# drop remaining NaN rows
-returns = returns.dropna()
+    returns = returns.dropna()
 
-print("\nReturns shape:", returns.shape)
+    print("Returns shape:", returns.shape)
 
-stock_names = returns.columns
+    return returns
 
 
-# -----------------------------------
-# 4. STANDARDIZE DATA
-# -----------------------------------
+# =====================================================
+# STANDARDIZATION
+# =====================================================
 
-scaler = StandardScaler()
+def standardize_returns(returns):
 
-X = scaler.fit_transform(returns)
+    scaler = StandardScaler()
 
+    X = scaler.fit_transform(returns)
 
-# -----------------------------------
-# 5. PCA (Principal Components)
-# -----------------------------------
+    return X
 
-k = 10
 
-pca = PCA(n_components=k)
+# =====================================================
+# PCA METHOD
+# =====================================================
 
-pca.fit(X)
+def run_pca(X, stock_names, k=10):
 
-pca_loadings = pd.DataFrame(
-    pca.components_.T,
-    index=stock_names,
-    columns=[f"PCA_{i}" for i in range(k)]
-)
+    pca = PCA(n_components=k)
 
-pca_scores = pca_loadings.abs().sum(axis=1)
+    pca.fit(X)
 
-top_pca = pca_scores.sort_values(ascending=False).head(k)
+    loadings = pd.DataFrame(
+        pca.components_.T,
+        index=stock_names,
+        columns=[f"PCA_{i}" for i in range(k)]
+    )
 
-print("\nTop PCA Stocks:")
-print(top_pca)
+    scores = loadings.abs().sum(axis=1)
 
+    top = scores.sort_values(ascending=False).head(k)
 
-# -----------------------------------
-# 6. ICA (Independent Components)
-# -----------------------------------
+    return top, scores
 
-ica = FastICA(n_components=k, random_state=42)
 
-ica.fit(X)
+# =====================================================
+# ICA METHOD
+# =====================================================
 
-ica_loadings = pd.DataFrame(
-    ica.mixing_,
-    index=stock_names,
-    columns=[f"ICA_{i}" for i in range(k)]
-)
+def run_ica(X, stock_names, k=10):
 
-ica_scores = ica_loadings.abs().sum(axis=1)
+    ica = FastICA(n_components=k, random_state=42)
 
-top_ica = ica_scores.sort_values(ascending=False).head(k)
+    ica.fit(X)
 
-print("\nTop ICA Stocks:")
-print(top_ica)
+    loadings = pd.DataFrame(
+        ica.mixing_,
+        index=stock_names,
+        columns=[f"ICA_{i}" for i in range(k)]
+    )
 
+    scores = loadings.abs().sum(axis=1)
 
-# -----------------------------------
-# 7. CCA (Canonical Correlation)
-# -----------------------------------
+    top = scores.sort_values(ascending=False).head(k)
 
-half = X.shape[1] // 2
+    return top, scores
 
-X1 = X[:, :half]
-X2 = X[:, half:]
 
-cca = CCA(n_components=k)
+# =====================================================
+# CCA METHOD
+# =====================================================
 
-cca.fit(X1, X2)
+def run_cca(X, stock_names, k=10):
 
-cca_weights = pd.DataFrame(
-    cca.x_weights_,
-    index=stock_names[:half],
-    columns=[f"CCA_{i}" for i in range(k)]
-)
+    half = X.shape[1] // 2
 
-cca_scores = cca_weights.abs().sum(axis=1)
+    X1 = X[:, :half]
+    X2 = X[:, half:]
 
-top_cca = cca_scores.sort_values(ascending=False).head(k)
+    cca = CCA(n_components=k)
 
-print("\nTop CCA Stocks:")
-print(top_cca)
+    cca.fit(X1, X2)
 
-# -----------------------------------
-# 8. COMBINE FACTOR RANKINGS
-# -----------------------------------
+    weights = pd.DataFrame(
+        cca.x_weights_,
+        index=stock_names[:half],
+        columns=[f"CCA_{i}" for i in range(k)]
+    )
 
-combined = pd.DataFrame({
-    "PCA": pca_scores,
-    "ICA": ica_scores
-}).fillna(0)
+    scores = weights.abs().sum(axis=1)
 
-combined["score"] = combined.sum(axis=1)
+    top = scores.sort_values(ascending=False).head(k)
 
-top_combined = combined.sort_values(
-    "score",
-    ascending=False
-).head(k)
+    return top, scores
 
-print("\nTop Combined Stocks:")
-print(top_combined)
+
+# =====================================================
+# COMBINED RANKING
+# =====================================================
+
+def combine_rankings(pca_scores, ica_scores):
+
+    combined = pd.DataFrame({
+        "PCA": pca_scores,
+        "ICA": ica_scores
+    }).fillna(0)
+
+    combined["score"] = combined.sum(axis=1)
+
+    top = combined.sort_values("score", ascending=False).head(10)
+
+    return top
+
+
+# =====================================================
+# MAIN PIPELINE
+# =====================================================
+
+def run_factor_pipeline(folder):
+
+    prices = load_stock_prices(folder)
+
+    returns = compute_returns(prices)
+
+    X = standardize_returns(returns)
+
+    stock_names = returns.columns
+
+
+    # PCA
+    top_pca, pca_scores = run_pca(X, stock_names)
+
+    print("\nTop PCA Stocks")
+    print(top_pca)
+
+
+    # ICA
+    top_ica, ica_scores = run_ica(X, stock_names)
+
+    print("\nTop ICA Stocks")
+    print(top_ica)
+
+
+    # CCA
+    top_cca, cca_scores = run_cca(X, stock_names)
+
+    print("\nTop CCA Stocks")
+    print(top_cca)
+
+
+    # Combined
+    top_combined = combine_rankings(pca_scores, ica_scores)
+
+    print("\nTop Combined Stocks")
+    print(top_combined)
+
+
+# =====================================================
+# ENTRY POINT
+# =====================================================
+
+if __name__ == "__main__":
+
+    folder = "sampled_stocks/new_directory"
+
+    run_factor_pipeline(folder)
