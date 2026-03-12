@@ -102,7 +102,10 @@ for name, model in methods.items():
 
     print("\nRunning", name)
 
-    model.fit(X, tickers)
+    if name == "DTW":
+        model.fit(X_dtw, tickers)   # raw returns per ticker, shape (n_tickers, n_time)
+    else:
+        model.fit(X, tickers)       # standardized for embeddings
 
 
 # ===============================
