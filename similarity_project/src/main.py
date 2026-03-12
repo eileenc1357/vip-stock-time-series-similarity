@@ -23,10 +23,6 @@ returns = compute_returns(prices)
 
 tickers = list(returns.columns)
 
-# TEMP: limit universe for DTW testing
-tickers = tickers[:25]
-returns = returns[tickers]
-
 
 # ===============================
 # Standardize
