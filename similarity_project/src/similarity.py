@@ -17,6 +17,9 @@ class SimilarityModel:
         self.embedding = None
         self.similarity_df = None
 
+        # for DTW
+        self._dtw_series_matrix = None
+        self._dtw_index = None
 
     def fit(self, X, tickers):
 
@@ -47,18 +50,41 @@ class SimilarityModel:
             return
 
         if self.metric == "dtw":
-            # X should be (n_tickers, series_length)
             series_matrix = np.asarray(X, dtype=float)
-            sim = self._dtw_similarity_matrix(series_matrix)
+            if series_matrix.ndim != 2:
+                raise ValueError(f"DTW expects X shaped (n_tickers, series_length). Got {series_matrix.shape}.")
+            if series_matrix.shape[0] != len(self.tickers):
+                raise ValueError("DTW expects one row per ticker in X.")
+
+            # Store for efficient computation
+            self._dtw_series_matrix = series_matrix
+            self._dtw_index = {t: i for i, t in enumerate(self.tickers)}
+
             self.embedding = None
-            self.similarity_df = pd.DataFrame(sim, index=tickers, columns=tickers)
+            self.similarity_df = None
             return
 
         raise ValueError(f"Unknown metric: {self.metric}")
 
 
     def top_k(self, ticker, k=10):
+        if self.metric == "dtw":
+            if self._dtw_series_matrix is None:
+                raise RuntimeError("DTW model not fit yet.")
 
+            i = self._dtw_index[ticker]
+            x = self._dtw_series_matrix[i]
+
+            sims = {}
+            for t, j in self._dtw_index.items():
+                if j == i:
+                    continue
+                d = self._dtw_distance(x, self._dtw_series_matrix[j])
+                sims[t] = self._distance_to_similarity(d)
+
+            return pd.Series(sims).sort_values(ascending=False).head(k)
+
+        
         sims = self.similarity_df.loc[ticker].drop(ticker)
 
         return sims.sort_values(ascending=False).head(k)
@@ -97,6 +123,7 @@ class SimilarityModel:
         # inverse transform => (0, 1] to fit top-k methodology
         return 1.0 / (1.0 + d)
 
+    # No longer using due to computational limits, but kept for future use
     def _dtw_similarity_matrix(self, series_matrix):
         n = series_matrix.shape[0]
         sim = np.zeros((n, n), dtype=float)
