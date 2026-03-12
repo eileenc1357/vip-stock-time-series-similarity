@@ -32,6 +32,9 @@ scaler = StandardScaler()
 
 X = scaler.fit_transform(returns.T)
 
+# Raw per-ticker sequences for DTW only
+X_dtw = returns.T.to_numpy(dtype=float)
+
 
 # ===============================
 # Define Models
@@ -83,6 +86,11 @@ methods = {
         random_state=0
     )
 ),
+    "DTW": SimilarityModel(
+        model=None,
+        metric="dtw",
+        dtw_z_normalize=True
+    ),
 }
 
 
