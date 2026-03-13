@@ -13,6 +13,7 @@ from models import MAEModel, VAEModel
 from sklearn.decomposition import FastICA
 from scipy.stats import spearmanr, kendalltau
 
+<<<<<<< Updated upstream
 def rank_correlation(list_a, list_b):
     """
     Compute Spearman and Kendall correlation between two rankings.
@@ -31,6 +32,9 @@ def rank_correlation(list_a, list_b):
     kendall = kendalltau(rank_a, rank_b).correlation
 
     return spearman, kendall
+=======
+from visibility_graph import VisibilityGraphEmbedder
+>>>>>>> Stashed changes
 
 # ===============================
 # Load Data
@@ -110,6 +114,12 @@ methods = {
         metric="dtw",
         dtw_z_normalize=True
     ),
+
+    "VisibilityGraph": SimilarityModel(
+        VisibilityGraphEmbedder(
+            n_bins=10, 
+            verbose=True)
+            ),
 }
 
 
