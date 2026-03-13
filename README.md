@@ -1,8 +1,8 @@
 # Stock Similarity via Representation Learning
 
-This project explores how different dimensionality reduction and representation learning methods capture **similarity between stocks** based on their historical return patterns.
+This project explores how different dimensionality reduction and representation learning methods capture similarity between stocks based on their historical return patterns.
 
-Multiple approaches are compared in a **unified pipeline**, including:
+Multiple approaches are compared in a unified pipeline, including:
 
 ### Linear Methods
 
@@ -20,7 +20,7 @@ Multiple approaches are compared in a **unified pipeline**, including:
 * Masked Autoencoder (MAE)
 * Variational Autoencoder (VAE)
 
-The goal is to evaluate how different representations affect **nearest-neighbor similarity relationships between securities**.
+The goal is to evaluate how different representations affect nearest-neighbor similarity relationships between securities.
 
 ---
 
@@ -47,14 +47,14 @@ similarity_project
 
 The pipeline follows these steps:
 
-1. **Load stock price data**
-2. **Compute log returns**
-3. **Standardize the data**
-4. **Generate embeddings** using different dimensionality reduction methods
-5. **Compute cosine similarity** between stock embeddings
-6. **Retrieve the Top-K most similar stocks**
-7. **Compare model agreement** using rank correlation metrics
-8. **Visualize similarity** via a heatmap
+1. Load stock price data
+2. Compute log returns
+3. Standardize the data
+4. Generate embeddings using different dimensionality reduction methods
+5. Compute cosine similarity between stock embeddings
+6. Retrieve the Top-K most similar stocks
+7. Compare model agreement** using rank correlation metrics
+8. Visualize similarity** via a heatmap
 
 All models are wrapped inside a common `SimilarityModel` interface so they can be run through the same pipeline.
 
@@ -94,5 +94,3 @@ Install with:
 ```
 pip install numpy pandas scikit-learn tensorflow seaborn matplotlib
 ```
-
-
