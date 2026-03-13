@@ -51,6 +51,9 @@ scaler = StandardScaler()
 
 X = scaler.fit_transform(returns.T)
 
+# Raw per-ticker sequences for DTW only
+X_dtw = returns.T.to_numpy(dtype=float)
+
 
 # ===============================
 # Define Models
@@ -102,6 +105,11 @@ methods = {
         random_state=0
     )
 ),
+    "DTW": SimilarityModel(
+        model=None,
+        metric="dtw",
+        dtw_z_normalize=True
+    ),
 }
 
 
@@ -113,7 +121,10 @@ for name, model in methods.items():
 
     print("\nRunning", name)
 
-    model.fit(X, tickers)
+    if name == "DTW":
+        model.fit(X_dtw, tickers)   # raw returns per ticker, shape (n_tickers, n_time)
+    else:
+        model.fit(X, tickers)       # standardized for embeddings
 
 
 # ===============================
