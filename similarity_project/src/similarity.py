@@ -197,10 +197,15 @@ def plot_similarity_graph(similarity_df, sector_map, threshold=0.8):
     plt.legend(handles=handles, title="Sectors")
     plt.title("Stock Similarity Network")
     plt.tight_layout()
-    plt.show()
 
     save_path = "./outputs/similarity_network.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
-    plt.close() 
     
     print(f"Saved network graph to {save_path}")
+
+    plt.show()
+    plt.close()
+
+    
+    
+    
