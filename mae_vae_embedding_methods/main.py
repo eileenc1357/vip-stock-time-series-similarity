@@ -4,6 +4,7 @@ from .data_loader import load_prices_from_zip, get_log_returns
 from .preprocessing import create_windows, temporal_train_val_test_split, standardize_features
 from .models import MAEModel, VAEModel
 from .evaluation import evaluate_embeddings_logreg, get_ticker_embeddings, get_top_k_similar
+from .evaluation import compare_rankings
 
 def main():
     # 1. Load Data
