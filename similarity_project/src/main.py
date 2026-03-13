@@ -8,33 +8,10 @@ from sklearn.decomposition import PCA, KernelPCA
 from sklearn.manifold import Isomap, LocallyLinearEmbedding
 
 from data_loader import load_stock_prices, compute_returns
-from similarity import SimilarityModel
+from similarity import SimilarityModel, plot_similarity_graph
 from models import MAEModel, VAEModel
 from sklearn.decomposition import FastICA
-from scipy.stats import spearmanr, kendalltau
 
-<<<<<<< Updated upstream
-def rank_correlation(list_a, list_b):
-    """
-    Compute Spearman and Kendall correlation between two rankings.
-    """
-
-    # Only compare shared tickers
-    common = [x for x in list_a if x in list_b]
-
-    if len(common) < 2:
-        return None, None
-
-    rank_a = [list_a.index(x) for x in common]
-    rank_b = [list_b.index(x) for x in common]
-
-    spearman = spearmanr(rank_a, rank_b).correlation
-    kendall = kendalltau(rank_a, rank_b).correlation
-
-    return spearman, kendall
-=======
-from visibility_graph import VisibilityGraphEmbedder
->>>>>>> Stashed changes
 
 # ===============================
 # Load Data
@@ -75,7 +52,7 @@ methods = {
         KernelPCA(
             n_components=5,
             kernel="rbf",
-            gamma=10
+            gamma=0.1
         )
     ),
 
@@ -104,22 +81,18 @@ methods = {
     ),
 
     "ICA": SimilarityModel(
-    FastICA(
-        n_components=5,
-        random_state=0
-    )
-),
-    "DTW": SimilarityModel(
-        model=None,
-        metric="dtw",
-        dtw_z_normalize=True
+        FastICA(
+            n_components=5,
+            random_state=0
+        )
     ),
 
-    "VisibilityGraph": SimilarityModel(
-        VisibilityGraphEmbedder(
-            n_bins=10, 
-            verbose=True)
-            ),
+    
+
+    "Wasserstein": SimilarityModel(
+        model=None,
+        metric="wasserstein"
+    ),
 }
 
 
@@ -141,7 +114,7 @@ for name, model in methods.items():
 # Select 5 Companies
 # ===============================
 
-test_companies = tickers
+test_companies = random.sample(tickers, 5)
 
 print("\nSelected companies:", test_companies)
 
@@ -149,9 +122,6 @@ print("\nSelected companies:", test_companies)
 # ===============================
 # Top 10 Similar
 # ===============================
-topk_results = {}
-
-example_company = tickers[0]
 
 for method_name, model in methods.items():
 
@@ -159,52 +129,12 @@ for method_name, model in methods.items():
     print(method_name)
     print("==============================")
 
-    topk_results[method_name] = {}
-
     for company in test_companies:
 
-        result = model.top_k(company, 10)
+        print("\nTop 10 similar to", company)
 
-        # only show one example per model
-        if company == example_company:
-            print("\nExample Top 10 similar to", company)
-            print(result)
+        print(model.top_k(company, 10))
 
-        topk_results[method_name][company] = list(result.index)
-
-print("\n\n==============================")
-print("Average Rank Correlation Between Models")
-print("==============================")
-
-method_names = list(methods.keys())
-
-for i in range(len(method_names)):
-    for j in range(i+1, len(method_names)):
-
-        m1 = method_names[i]
-        m2 = method_names[j]
-
-        spearman_vals = []
-        kendall_vals = []
-
-        for company in test_companies:
-
-            r1 = topk_results[m1][company]
-            r2 = topk_results[m2][company]
-
-            spearman, kendall = rank_correlation(r1, r2)
-
-            if spearman is not None:
-                spearman_vals.append(spearman)
-
-            if kendall is not None:
-                kendall_vals.append(kendall)
-
-        print(
-            f"{m1} vs {m2} -> "
-            f"Spearman: {np.mean(spearman_vals):.3f}, "
-            f"Kendall: {np.mean(kendall_vals):.3f}"
-        )
 
 # ===============================
 # Heatmap
@@ -229,3 +159,22 @@ plt.tight_layout()
 plt.savefig("./outputs/similarity_heatmap.png")
 
 print("\nSaved heatmap")
+
+
+
+
+# ===============================
+# Network Graph
+# ===============================
+
+print("\nGenerating Similarity Network Graph...")
+
+# Dummy sector data assigned to each ticker for now.
+sector_map = { ticker: "Tech" for ticker in tickers[:len(tickers)//2] }
+sector_map.update({ ticker: "Finance" for ticker in tickers[len(tickers)//2:] })
+
+wasserstein_model = methods.get("Wasserstein")
+if wasserstein_model and wasserstein_model.similarity_df is not None:
+    plot_similarity_graph(wasserstein_model.similarity_df, sector_map, threshold=0.8)
+else:
+    print("Network Graph model did not run successfully, network graph will not be generated/updated.")
