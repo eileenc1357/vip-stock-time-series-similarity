@@ -81,23 +81,13 @@ outputs/similarity_heatmap.png
 ```
 ---
 
-# Similarity Measurement
+# Similarity Measurement and Model Comparison
 
 After embedding:
 
 1. All embeddings are **L2 normalized**
 2. **Cosine similarity** is computed between all stocks
 3. The pipeline retrieves the **Top-K most similar stocks**
-
-This produces a similarity matrix:
-
-```
-stocks × stocks
-```
-
----
-
-# Model Comparison
 
 To evaluate how different models agree on similarity relationships, the pipeline computes:
 
@@ -128,13 +118,5 @@ Install with:
 ```
 pip install numpy pandas scikit-learn tensorflow seaborn matplotlib
 ```
-
----
-
-# Summary
-
-This repository provides a **unified pipeline for evaluating similarity learning methods on financial time series**.
-
-It demonstrates how different representation learning techniques produce **very different notions of similarity between assets**, and compares their behavior through ranking correlations.
 
 
