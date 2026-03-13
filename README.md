@@ -43,21 +43,6 @@ similarity_project
 
 ---
 
-# How It Works
-
-The pipeline follows these steps:
-
-1. Load stock price data
-2. Compute log returns
-3. Standardize the data
-4. Generate embeddings using different dimensionality reduction methods
-5. Compute cosine similarity between stock embeddings
-6. Retrieve the Top-K most similar stocks
-7. Compare model agreement** using rank correlation metrics
-8. Visualize similarity** via a heatmap
-
-All models are wrapped inside a common `SimilarityModel` interface so they can be run through the same pipeline.
-
 # Running the Project
 
 From the repository root:
