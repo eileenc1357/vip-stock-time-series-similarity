@@ -74,31 +74,7 @@ This will:
 * compute stock similarity matrices
 * print example Top-10 similar stocks
 * compute rank correlations between models
-* save a similarity heatmap to:
-
-```
-outputs/similarity_heatmap.png
-```
----
-
-# Similarity Measurement and Model Comparison
-
-After embedding:
-
-1. All embeddings are **L2 normalized**
-2. **Cosine similarity** is computed between all stocks
-3. The pipeline retrieves the **Top-K most similar stocks**
-
-To evaluate how different models agree on similarity relationships, the pipeline computes:
-
-* **Spearman rank correlation**
-* **Kendall rank correlation**
-
-between the Top-K rankings produced by each model.
-
-This helps measure whether different representation learning approaches identify **similar stock relationships**.
-
----
+* save a similarity heatmap to outputs/similarity_heatmap.png
 
 # Dependencies
 
