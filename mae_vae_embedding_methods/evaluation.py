@@ -59,32 +59,4 @@ def get_top_k_similar(ticker_emb_df: pd.DataFrame, query_ticker: str, k: int=10)
             
     return pd.DataFrame(results, columns=["ticker", "cosine_dist"])
 
-def compare_rankings(df_a, df_b):
-    """
-    Compare two Top-K similarity rankings.
 
-    df_a, df_b:
-        DataFrames returned from get_top_k_similar()
-        Must contain 'ticker' column.
-    """
-
-    # Align tickers
-    tickers = list(set(df_a['ticker']).intersection(set(df_b['ticker'])))
-
-    if len(tickers) < 2:
-        return {"spearman": None, "kendall": None}
-
-    # Rank dictionaries
-    rank_a = {t:i for i,t in enumerate(df_a['ticker'])}
-    rank_b = {t:i for i,t in enumerate(df_b['ticker'])}
-
-    ranks_a = [rank_a[t] for t in tickers]
-    ranks_b = [rank_b[t] for t in tickers]
-
-    spearman = spearmanr(ranks_a, ranks_b).correlation
-    kendall = kendalltau(ranks_a, ranks_b).correlation
-
-    return {
-        "spearman": spearman,
-        "kendall": kendall
-    }

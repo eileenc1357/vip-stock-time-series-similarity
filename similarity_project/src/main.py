@@ -14,6 +14,13 @@ from sklearn.decomposition import FastICA
 
 from visibility_graph import VisibilityGraphEmbedder
 
+from forecasting import (
+    evaluate_similarity_method,
+    evaluate_random_baseline,
+    evaluate_univariate,
+    symmetry_score,
+)
+
 def rank_correlation(list_a, list_b):
     """
     Compute Spearman and Kendall correlation between two rankings.
@@ -42,6 +49,9 @@ def rank_correlation(list_a, list_b):
 prices = load_stock_prices("./data/new_directory")
 
 returns = compute_returns(prices)
+
+# speed fix, reduce time series to past 250 days, for dtw
+returns = returns.iloc[-250:]
 
 tickers = list(returns.columns)
 
@@ -103,29 +113,36 @@ methods = {
     ),
 
     "ICA": SimilarityModel(
+      
         FastICA(
-            n_components=5,
-            random_state=0
-        )
+          n_components=5,
+          random_state=0
+          )
     ),
+    # ===============================
+    # BASELINES
+    # ===============================
+    "CosineRaw": SimilarityModel(metric="cosine"),
+    "Euclidean": SimilarityModel(metric="euclidean"),
+    "Correlation": SimilarityModel(metric="correlation"),
 
-    "DTW": SimilarityModel(
-        model=None,
-        metric="dtw",
-        dtw_z_normalize=True
-    ),
+    # "DTW": SimilarityModel(
+    #     model=None,
+    #     metric="dtw",
+    #     dtw_z_normalize=True
+    # ),
 
     "VisibilityGraph": SimilarityModel(
         VisibilityGraphEmbedder(
-        n_bins=10, 
-        verbose=True)
+            n_bins=10, 
+            verbose=True
+        )
     ),
-
 
     "Wasserstein": SimilarityModel(
         model=None,
         metric="wasserstein"
-    ),
+    )
 }
 
 
@@ -138,13 +155,18 @@ for name, model in methods.items():
     print("\nRunning", name)
 
     if name == "DTW":
-        model.fit(X_dtw, tickers)   # raw returns per ticker, shape (n_tickers, n_time)
+        model.fit(X_dtw, tickers)
+
+    elif name == "Correlation":
+        # 🔥 use raw returns (not standardized)
+        model.fit(returns.T.to_numpy(), tickers)
+
     else:
-        model.fit(X, tickers)       # standardized for embeddings
+        model.fit(X, tickers)
 
 
 # ===============================
-# Select 5 Companies
+# Select Companies
 # ===============================
 
 test_companies = tickers
@@ -153,7 +175,7 @@ print("\nSelected companies:", test_companies)
 
 
 # ===============================
-# Top 10 Similar
+# Similarity comparisons
 # ===============================
 topk_results = {}
 
@@ -211,6 +233,107 @@ for i in range(len(method_names)):
             f"Spearman: {np.mean(spearman_vals):.3f}, "
             f"Kendall: {np.mean(kendall_vals):.3f}"
         )
+# ===============================
+# FORECASTING EVALUATION
+# ===============================
+
+print("\n\n==============================")
+print("Forecasting Performance")
+print("==============================")
+print("\n\n==============================")
+print("Methods being compared")
+print("==============================")
+
+for name in methods:
+    print(name)
+
+results = {}
+
+k = 10  # number of similar stocks
+
+for method_name, model in methods.items():
+
+    print(f"\nEvaluating {method_name}")
+
+    mses = []
+
+    for idx, target in enumerate(tickers):
+
+        mse = evaluate_similarity_method(
+            model,
+            target,
+            returns,
+            k=k
+        )
+        if idx < 2:
+            neighbors = model.top_k(target, k).index.tolist()
+            print(f"{method_name} | {target} neighbors: {neighbors[:3]}")
+
+        mses.append(mse)
+
+    results[method_name] = np.mean(mses)
+
+
+# ===============================
+# BASELINES
+# ===============================
+
+print("\nEvaluating Random Baseline")
+
+random_mses = []
+for target in tickers:
+    mse = evaluate_random_baseline(target, returns, tickers, k=k)
+    random_mses.append(mse)
+
+results["Random"] = np.mean(random_mses)
+
+
+print("\nEvaluating Univariate Baseline")
+
+uni_mses = []
+for target in tickers:
+    mse = evaluate_univariate(target, returns)
+    uni_mses.append(mse)
+
+results["Univariate"] = np.mean(uni_mses)
+
+
+# ===============================
+# PRINT RESULTS
+# ===============================
+
+print("\n\n==============================")
+print("Final Results (MSE ↓ better)")
+print("==============================")
+
+print("\n--- Embedding Methods ---")
+for method in ["PCA", "KernelPCA", "Isomap", "LLE", "ICA", "MAE", "VAE"]:
+    if method in results:
+        print(f"{method}: {results[method]:.6f}")
+
+print("\n--- Similarity Baselines ---")
+for method in ["CosineRaw", "Euclidean", "Correlation"]:
+    print(f"{method}: {results[method]:.6f}")
+
+print("\n--- True Baselines ---")
+print(f"Random: {results['Random']:.6f}")
+print(f"Univariate: {results['Univariate']:.6f}")
+
+# ===============================
+# Symmetry Scores
+# ===============================
+
+print("\n\n==============================")
+print("Symmetry Scores (↓ better)")
+print("==============================")
+
+for method_name, model in methods.items():
+    if model.similarity_df is None:
+        print(f"{method_name}: skipped")
+        continue
+
+    score = symmetry_score(model.similarity_df)
+    print(f"{method_name}: {score:.6f}")
 
 
 
