@@ -8,10 +8,11 @@ from sklearn.decomposition import PCA, KernelPCA
 from sklearn.manifold import Isomap, LocallyLinearEmbedding
 
 from data_loader import load_stock_prices, compute_returns
-from similarity import SimilarityModel
+from similarity import SimilarityModel, plot_similarity_graph
 from models import MAEModel, VAEModel
 from sklearn.decomposition import FastICA
-from scipy.stats import spearmanr, kendalltau
+
+from visibility_graph import VisibilityGraphEmbedder
 
 from forecasting import (
     evaluate_similarity_method,
@@ -23,6 +24,7 @@ from forecasting import (
 def rank_correlation(list_a, list_b):
     """
     Compute Spearman and Kendall correlation between two rankings.
+
     """
 
     # Only compare shared tickers
@@ -38,6 +40,7 @@ def rank_correlation(list_a, list_b):
     kendall = kendalltau(rank_a, rank_b).correlation
 
     return spearman, kendall
+
 
 # ===============================
 # Load Data
@@ -110,22 +113,36 @@ methods = {
     ),
 
     "ICA": SimilarityModel(
-    FastICA(
-        n_components=5,
-        random_state=0
-        )
+      
+        FastICA(
+          n_components=5,
+          random_state=0
+          )
     ),
     # ===============================
     # BASELINES
     # ===============================
     "CosineRaw": SimilarityModel(metric="cosine"),
     "Euclidean": SimilarityModel(metric="euclidean"),
-    "Correlation": SimilarityModel(metric="correlation")
+    "Correlation": SimilarityModel(metric="correlation"),
+
     # "DTW": SimilarityModel(
     #     model=None,
     #     metric="dtw",
     #     dtw_z_normalize=True
     # ),
+
+    "VisibilityGraph": SimilarityModel(
+        VisibilityGraphEmbedder(
+            n_bins=10, 
+            verbose=True
+        )
+    ),
+
+    "Wasserstein": SimilarityModel(
+        model=None,
+        metric="wasserstein"
+    )
 }
 
 
@@ -318,6 +335,8 @@ for method_name, model in methods.items():
     score = symmetry_score(model.similarity_df)
     print(f"{method_name}: {score:.6f}")
 
+
+
 # ===============================
 # Heatmap
 # ===============================
@@ -341,3 +360,22 @@ plt.tight_layout()
 plt.savefig("./outputs/similarity_heatmap.png")
 
 print("\nSaved heatmap")
+
+
+
+
+# ===============================
+# Network Graph
+# ===============================
+
+print("\nGenerating Similarity Network Graph...")
+
+# Dummy sector data assigned to each ticker for now.
+sector_map = { ticker: "Tech" for ticker in tickers[:len(tickers)//2] }
+sector_map.update({ ticker: "Finance" for ticker in tickers[len(tickers)//2:] })
+
+wasserstein_model = methods.get("Wasserstein")
+if wasserstein_model and wasserstein_model.similarity_df is not None:
+    plot_similarity_graph(wasserstein_model.similarity_df, sector_map, threshold=0.8)
+else:
+    print("Network Graph model did not run successfully, network graph will not be generated/updated.")
