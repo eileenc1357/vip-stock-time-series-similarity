@@ -252,4 +252,7 @@ if __name__ == "__main__":
     plt.ylabel("MSE")
     plt.legend()
     plt.title("PatchTST Stock Selection Comparison")
+    output_dir = os.path.join("./similarity_project/outputs", "outputs")
+    os.makedirs(output_dir, exist_ok=True)
+    plt.savefig(os.path.join(output_dir, "patchtst_results.png"))
     plt.show()
