@@ -47,9 +47,27 @@ class SimilarityModel:
         # ===============================
         # EUCLIDEAN
         # ===============================
-        if self.metric == "euclidean":
+        elif self.metric == "euclidean":
             dist = euclidean_distances(X)
             sim = 1.0 / (1.0 + dist)
+            self.similarity_df = pd.DataFrame(
+                sim,
+                index=tickers,
+                columns=tickers
+            )
+            return
+        # ===============================
+        # CORRELATION
+        # ===============================
+        elif self.metric == "correlation":
+            sim = np.corrcoef(X)
+
+            self.similarity_df = pd.DataFrame(
+                sim,
+                index=tickers,
+                columns=tickers
+            )
+            return
 
         elif self.metric == "wasserstein":
             series_matrix = np.asarray(X, dtype=float)
@@ -71,27 +89,27 @@ class SimilarityModel:
                 columns=tickers
             )
             return
+        else:
+            raise ValueError(f"Unknown metric: {self.metric}")
 
-        raise ValueError(f"Unknown metric: {self.metric}")
 
+    # def top_k(self, ticker, k=10):
+    #     if self.metric == "dtw":
+    #         if self._dtw_series_matrix is None:
+    #             raise RuntimeError("DTW model not fit yet.")
 
-    def top_k(self, ticker, k=10):
-        if self.metric == "dtw":
-            if self._dtw_series_matrix is None:
-                raise RuntimeError("DTW model not fit yet.")
+    #         i = self._dtw_index[ticker]
+    #         x = self._dtw_series_matrix[i]
 
-            i = self._dtw_index[ticker]
-            x = self._dtw_series_matrix[i]
+    #         sims = {}
+    #         for t, j in self._dtw_index.items():
+    #             if j == i:
+    #                 continue
+    #             d = self._dtw_distance(x, self._dtw_series_matrix[j])
+    #             sims[t] = self._distance_to_similarity(d)
 
-            sims = {}
-            for t, j in self._dtw_index.items():
-                if j == i:
-                    continue
-                d = self._dtw_distance(x, self._dtw_series_matrix[j])
-                sims[t] = self._distance_to_similarity(d)
-
-            self.similarity_df = pd.DataFrame(sim, index=tickers, columns=tickers)
-            return
+    #         self.similarity_df = pd.DataFrame(sim, index=tickers, columns=tickers)
+    #         return
 
         # ===============================
         # CORRELATION
@@ -114,10 +132,6 @@ class SimilarityModel:
         # return sim
     
     def top_k(self, ticker, k=5):
-        """
-        Return top-k most similar tickers (excluding itself).
-        """
-
         if self.similarity_df is None:
             raise ValueError("Model not fitted yet.")
 
@@ -125,11 +139,7 @@ class SimilarityModel:
             raise ValueError(f"{ticker} not found in similarity matrix.")
 
         sims = self.similarity_df.loc[ticker].copy()
-
-        # remove self
         sims = sims.drop(ticker)
-
-        # sort by similarity (descending)
         sims = sims.sort_values(ascending=False)
 
         return sims.head(k)

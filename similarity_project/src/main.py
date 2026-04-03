@@ -2,6 +2,7 @@ import random
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from scipy.stats import spearmanr, kendalltau
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA, KernelPCA
@@ -38,6 +39,10 @@ def rank_correlation(list_a, list_b):
 
     spearman = spearmanr(rank_a, rank_b).correlation
     kendall = kendalltau(rank_a, rank_b).correlation
+    if np.isnan(spearman):
+        spearman = None
+    if np.isnan(kendall):
+        kendall = None
 
     return spearman, kendall
 
