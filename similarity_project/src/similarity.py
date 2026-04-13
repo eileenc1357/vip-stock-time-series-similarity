@@ -6,6 +6,9 @@ from scipy.stats import wasserstein_distance
 import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances, manhattan_distances
+from scipy.stats import wasserstein_distance, spearmanr
+from scipy.spatial.distance import jensenshannon
 
 class SimilarityModel:
 
@@ -91,6 +94,71 @@ class SimilarityModel:
             return
         else:
             raise ValueError(f"Unknown metric: {self.metric}")
+        # ===============================
+        # MANHATTAN (L1)
+        # ===============================
+        elif self.metric == "manhattan":
+            dist = manhattan_distances(X)
+            sim = 1.0 / (1.0 + dist)
+
+            self.similarity_df = pd.DataFrame(sim, index=tickers, columns=tickers)
+            return
+
+        # ===============================
+        # SPEARMAN CORRELATION (rank-based)
+        # ===============================
+        elif self.metric == "spearman":
+            # Treat each row as a series/feature vector; compute pairwise Spearman correlation.
+            # spearmanr with axis=1 computes correlations between rows.
+            sim, _ = spearmanr(X, axis=1)
+
+            # spearmanr returns a (n_rows x n_rows) correlation matrix when axis=1
+            self.similarity_df = pd.DataFrame(sim, index=tickers, columns=tickers)
+            return
+
+        # ===============================
+        # JENSEN–SHANNON (distributional similarity)
+        # ===============================
+        elif self.metric in ("js", "jensen-shannon", "jensenshannon"):
+            series_matrix = np.asarray(X, dtype=float)
+            n_tickers = len(tickers)
+
+            # Convert each row into a probability distribution via histogram over shared bins.
+            # This is typically most meaningful when X rows are returns (not prices).
+            finite_vals = series_matrix[np.isfinite(series_matrix)]
+            if finite_vals.size == 0:
+                raise ValueError("Input X contains no finite values for Jensen–Shannon metric.")
+
+            # Shared bins across all tickers for comparability
+            bins = np.histogram_bin_edges(finite_vals, bins=50)
+
+            probs = np.zeros((n_tickers, len(bins) - 1), dtype=float)
+            for i in range(n_tickers):
+                row = series_matrix[i]
+                row = row[np.isfinite(row)]
+                hist, _ = np.histogram(row, bins=bins, density=False)
+                p = hist.astype(float)
+
+                # Smooth to avoid zero-probability issues (important for divergence metrics)
+                eps = 1e-12
+                p = p + eps
+                p = p / p.sum()
+                probs[i] = p
+
+            distances = np.zeros((n_tickers, n_tickers), dtype=float)
+            for i in range(n_tickers):
+                for j in range(i + 1, n_tickers):
+                    # jensenshannon returns a distance in [0, 1] (for base=2 default behavior)
+                    d = jensenshannon(probs[i], probs[j])
+                    distances[i, j] = d
+                    distances[j, i] = d
+
+            # Convert distance -> similarity
+            sim = 1.0 / (1.0 + distances)
+            np.fill_diagonal(sim, 1.0)
+
+            self.similarity_df = pd.DataFrame(sim, index=tickers, columns=tickers)
+            return    
 
 
     # def top_k(self, ticker, k=10):
