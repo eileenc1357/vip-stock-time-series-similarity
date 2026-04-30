@@ -19,8 +19,23 @@ Multiple approaches are compared in a unified pipeline, including:
 
 * Masked Autoencoder (MAE)
 * Variational Autoencoder (VAE)
+* PatchTST (Patch Time Series Transformer)
 
 The goal is to evaluate how different representations affect nearest-neighbor similarity relationships between securities.
+
+PatchTST is a Transformer-based model for time series that operates on local patches of the input sequence. In this project, it is used to generate embeddings of stock return series for similarity comparison.
+
+## PatchTST Experiments
+
+PatchTST is included in the main benchmark pipeline for fair comparison against other representation learning methods.
+
+For more extensive or faster experimentation with PatchTST, additional scripts are provided in the `experiments/` directory (e.g., `fast_patchtst.py`), which allow:
+
+- faster iteration on model configurations  
+- isolated testing of PatchTST performance  
+- more granular analysis of embedding quality  
+
+These scripts are intended for deeper analysis beyond the unified comparison framework in `main.py`.
 
 ---
 

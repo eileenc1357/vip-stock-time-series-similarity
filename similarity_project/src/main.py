@@ -12,9 +12,8 @@ from data_loader import load_stock_prices, compute_returns
 from similarity import SimilarityModel, plot_similarity_graph
 from models import MAEModel, VAEModel
 from sklearn.decomposition import FastICA
-
+from patchtst import PatchTST
 from visibility_graph import VisibilityGraphEmbedder
-
 from forecasting import (
     evaluate_similarity_method,
     evaluate_random_baseline,
@@ -115,6 +114,9 @@ methods = {
     "VAE": SimilarityModel(
         VAEModel(input_dim, latent_dim=16),
         is_autoencoder=True
+    ),
+    "PatchTST": SimilarityModel(
+    PatchTST()
     ),
 
     "ICA": SimilarityModel(
